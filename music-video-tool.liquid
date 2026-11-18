@@ -1,0 +1,909 @@
+{{ 'music-video-tool.css' | asset_url | stylesheet_tag }}
+
+<style>
+  /* Portal Mode Overrides: Completely suppress Step 3 and Normal Step 2 Next button */
+  .mvt-wrapper.is-portal [data-mvt-normal-step2-nav],
+  .mvt-wrapper.is-portal [data-mvt-stage="3"],
+  .mvt-wrapper.is-portal [data-mvt-stage-line="2"],
+  .mvt-wrapper.is-portal [data-mvt-panel="3"],
+  .mvt-wrapper [data-mvt-normal-step2-nav][hidden],
+  .mvt-wrapper [data-mvt-normal-step2-nav].is-hidden {
+    display: none !important;
+  }
+</style>
+
+<script>
+  window.Shopify = window.Shopify || {};
+  window.Shopify.money_format = {{ shop.money_format | json }};
+  window.Shopify.money_with_currency_format = {{ shop.money_with_currency_format | json }};
+  window.Shopify.currency = window.Shopify.currency || {};
+  window.Shopify.currency.active = {{ cart.currency.iso_code | json }};
+  window.Shopify.currency.symbol = {{ cart.currency.symbol | json }};
+  window.Shopify.country = {{ localization.country.iso_code | json }};
+</script>
+
+{%- liquid
+  assign brand_color = section.settings.brand_color | default: '#ff5b00'
+  assign heading_text = section.settings.heading | default: 'Create Your Music Video'
+  assign subheading_text = section.settings.subheading | default: 'Turn your custom song and favorite memories into a cinematic music video'
+
+  assign video_product = section.settings.video_product
+
+  if video_product == blank and product != blank
+    assign video_product = product
+  endif
+
+  if video_product == blank or video_product.title == blank
+    for p in collections.all.products
+      assign p_title_lower = p.title | downcase
+      assign p_handle_lower = p.handle | downcase
+      if p_title_lower contains 'video' or p_handle_lower contains 'video'
+        assign video_product = p
+        break
+      endif
+    endfor
+  endif
+
+  if video_product == blank or video_product.title == blank
+    assign video_product = product | default: collections.all.products.first
+  endif
+
+  if video_product == blank or video_product.title == blank
+    assign video_product = all_products['music-video']
+  endif
+
+  assign video_default_v = video_product.selected_or_first_available_variant
+  assign video_rush_v = blank
+  if video_product != blank
+    for v in video_product.variants
+      assign v_title_lower = v.title | downcase
+      if v_title_lower contains 'rush' or v_title_lower contains 'fast' or v_title_lower contains '2 hours' or v_title_lower contains '60'
+        assign video_rush_v = v
+        break
+      endif
+    endfor
+    if video_rush_v == blank and video_product.variants.size > 1
+      assign video_rush_v = video_product.variants[1]
+    endif
+  endif
+-%}
+
+<div
+  class="mvt-wrapper"
+  id="mvt-{{ section.id }}"
+  data-section-id="{{ section.id }}"
+  data-backend-url="{{ section.settings.backend_url | default: 'https://dashboard.myownsongs.com' }}"
+  data-product-id="{{ video_product.id }}"
+  data-variant-id="{{ video_default_v.id }}"
+  {% if video_rush_v != blank %}
+    data-rush-variant-id="{{ video_rush_v.id }}"
+  {% endif %}
+  data-product-handle="{{ video_product.handle }}"
+  style="--mvt-brand: {{ brand_color }};"
+>
+  <div class="mvt-card">
+    <script type="application/json" data-mvt-variant-prices-json>
+      {
+        "variants": {
+          {%- assign first_v = true -%}
+          {%- if video_product != blank -%}
+            {%- for v in video_product.variants -%}
+              {%- unless first_v -%},{%- endunless -%}
+              "{{ v.id }}": {
+                "title": {{ v.title | json }},
+                "price": {{ v.price | json }},
+                "compare_at": {{ v.compare_at_price | json }},
+                "compare_at_price": {{ v.compare_at_price | json }},
+                "formatted_price": {{ v.price | money | json }},
+                "formatted_compare_at": {%- if v.compare_at_price > v.price -%}{{ v.compare_at_price | money | json }}{%- else -%}""{%- endif -%}
+              }
+              {%- assign first_v = false -%}
+            {%- endfor -%}
+          {%- endif -%}
+        },
+        "default_variant": {
+          "id": {{ video_default_v.id | json }},
+          "price": {{ video_default_v.price | json }},
+          "compare_at_price": {{ video_default_v.compare_at_price | json }},
+          "formatted_price": {{ video_default_v.price | money | json }},
+          "formatted_compare_at": {%- if video_default_v.compare_at_price > video_default_v.price -%}{{ video_default_v.compare_at_price | money | json }}{%- else -%}""{%- endif -%}
+        }
+      }
+    </script>
+
+    <!-- Top Heading -->
+    {%- if heading_text != blank -%}
+      <div class="mvt-card-top-header">
+        <h1 class="mvt-main-title">{{ heading_text }}</h1>
+      </div>
+    {%- endif -%}
+
+    <!-- Stage Progress Bar (Matching Custom Song Builder) -->
+    <div class="mvt-stage-bar" data-mvt-stage-bar>
+      <div class="mvt-stage is-active" data-mvt-stage="1">
+        <div class="mvt-stage-icon">1</div>
+        <div class="mvt-stage-label">Audio Track</div>
+      </div>
+      <div class="mvt-stage-line" data-mvt-stage-line="1"></div>
+      <div class="mvt-stage" data-mvt-stage="2">
+        <div class="mvt-stage-icon">2</div>
+        <div class="mvt-stage-label">Photos &amp; Clips</div>
+      </div>
+      <div class="mvt-stage-line" data-mvt-stage-line="2"></div>
+      <div class="mvt-stage" data-mvt-stage="3">
+        <div class="mvt-stage-icon">3</div>
+        <div class="mvt-stage-label">Package &amp; Order</div>
+      </div>
+    </div>
+
+    <!-- Portal Status & Locked Notifications (Auto-shown when accessed via secure token / order link) -->
+    <div class="mvt-portal-banner" data-mvt-portal-banner hidden style="margin-bottom: 24px; padding: 14px 18px; border-radius: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 20px;">🎬</span>
+        <div>
+          <div style="font-weight: 700; font-size: 14px; color: #166534;" data-mvt-portal-order-title>Order Media Portal</div>
+          <div style="font-size: 12px; color: #15803d;" data-mvt-portal-order-sub>Upload or manage files for your custom music video.</div>
+        </div>
+      </div>
+      <div data-mvt-portal-badge>
+        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 700;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #22c55e;"></span> Active (1 Submission Allowed)
+        </span>
+      </div>
+    </div>
+
+    <div class="mvt-portal-locked-notice" data-mvt-portal-locked hidden style="margin-bottom: 24px; padding: 16px 20px; border-radius: 14px; background: #fffbeb; border: 1px solid #fde68a; display: flex; align-items: flex-start; gap: 12px;">
+      <span style="font-size: 24px; line-height: 1;">🔒</span>
+      <div style="flex: 1;">
+        <strong style="display: block; font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #78350f;">Submissions Closed / Locked</strong>
+        <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #92400e;">
+          Your files have been received by our video production team! This single-use link is now locked for editing. You can still review your uploaded media below. If you need to make changes or add more files, please contact our support team to request a new link.
+        </p>
+      </div>
+    </div>
+
+    <!-- Main Step Body -->
+    <main class="mvt-body">
+      <!-- ==================== STEP 1: Upload Audio ==================== -->
+      <section class="mvt-step-panel active" data-mvt-panel="1">
+        <div class="mvt-panel-heading">
+          <h2 data-mvt-step1-title>{{ section.settings.step1_title | default: 'Step 1: Upload your audio track' }}</h2>
+          <p data-mvt-step1-subtitle>
+            {{
+              section.settings.step1_subtitle
+              | default: 'Upload your custom song or any audio file you want in the music video.'
+            }}
+          </p>
+        </div>
+
+        <!-- Audio Dropzone (Empty State) -->
+        <div class="mvt-dropzone" data-mvt-audio-dropzone>
+          <input type="file" id="mvt-audio-input" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac" class="mvt-file-input" />
+          <div class="mvt-dropzone-content">
+            <div class="mvt-dropzone-icon">
+              <svg
+                viewBox="0 0 24 24"
+                width="48"
+                height="48"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M9 18V5l12-2v13" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="16" r="3" />
+              </svg>
+            </div>
+            <h3>Drag &amp; drop your audio file here</h3>
+            <p>or click to browse from your device</p>
+            <div class="mvt-dropzone-btn-wrap">
+              <label for="mvt-audio-input" class="mvt-btn-secondary mvt-btn-sm">Choose Audio File</label>
+            </div>
+            <span class="mvt-dropzone-formats">Supports MP3, WAV, M4A, AAC, FLAC (Max 15MB)</span>
+          </div>
+        </div>
+
+        <!-- Audio Uploaded & Playback Card -->
+        <div class="mvt-audio-card" data-mvt-audio-card hidden>
+          <div class="mvt-audio-card-header">
+            <div class="mvt-audio-info">
+              <h4 class="mvt-audio-name" data-mvt-audio-filename>Song.mp3</h4>
+              <span class="mvt-audio-size" data-mvt-audio-filesize>3.4 MB</span>
+            </div>
+            <button type="button" class="mvt-btn-text" data-mvt-change-audio>
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+              </svg>
+              <span>Change Audio</span>
+            </button>
+          </div>
+
+          <div class="mvt-audio-player-wrap" data-mvt-player-container>
+            <audio controls class="mvt-audio-player" data-mvt-audio-player></audio>
+          </div>
+
+          <!-- Music Regeneration Box for Upsell Customers (Shown only when allowed for this customer) -->
+          <div class="mvt-music-regen-box" data-mvt-music-regen-box hidden style="margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: #fdf4ff; border: 1px solid #f0abfc;">
+            <!-- Available Variations List -->
+            <div data-mvt-variations-box hidden style="margin-bottom: 12px;">
+              <div style="font-size: 12px; font-weight: 700; color: #86198f; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                <span>🎵 Select Song Variation:</span>
+              </div>
+              <div data-mvt-variations-list style="display: flex; flex-wrap: wrap; gap: 8px;">
+                <!-- Dynamically populated buttons -->
+              </div>
+            </div>
+
+            <!-- Regenerate Trigger Row -->
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+              <div style="font-size: 12px; color: #701a75; line-height: 1.4;">
+                <strong>Want a different version of your song?</strong><br>
+                <span>Click regenerate to create a fresh AI melody using your custom story &amp; lyrics.</span>
+              </div>
+              <button type="button" class="mvt-btn-secondary mvt-btn-sm" data-mvt-btn-regen-music style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; border: 1px solid #d946ef; background: #fae8ff; color: #86198f;">
+                <svg data-mvt-regen-spinner hidden viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" style="animation: mvtSpin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-dasharray="32" stroke-linecap="round"></circle></svg>
+                <span data-mvt-regen-music-icon>🔄</span>
+                <span data-mvt-regen-music-text>Regenerate Music</span>
+              </button>
+            </div>
+
+            <!-- Status Indicator during AI generation -->
+            <div data-mvt-regen-status hidden style="margin-top: 10px; padding: 10px 14px; border-radius: 8px; background: #eff6ff; border: 1px solid #bfdbfe; font-size: 12px; color: #1e40af; display: flex; align-items: center; gap: 8px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span>
+              <span data-mvt-regen-status-text>Composing new music with AI... this usually takes 1-2 minutes.</span>
+            </div>
+          </div>
+
+          <!-- Upsell Audio Confirmation & Continue Pill -->
+          <div data-mvt-upsell-audio-notice hidden style="margin-top: 14px; padding: 12px 16px; border-radius: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 13px; color: #166534;">
+              <strong>✓ Your Song is Ready:</strong> You do NOT need to upload audio. Click Next to upload your photos &amp; videos!
+            </div>
+            <button type="button" class="mvt-btn-primary mvt-btn-sm" data-mvt-next="2" style="padding: 8px 18px; border-radius: 8px; font-weight: 700; cursor: pointer;">
+              <span>Upload Photos &amp; Clips ➜</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Inline Step Alert (Compact 1-Line) -->
+        <div class="mvt-step-alert" data-mvt-step-alert="1" hidden>
+          <span class="mvt-step-alert-icon" data-mvt-step-alert-icon>⚠️</span>
+          <span class="mvt-step-alert-text">
+            <strong data-mvt-step-alert-title>Audio Required:</strong>
+            <span data-mvt-step-alert-msg>Please upload an audio track to proceed.</span>
+          </span>
+        </div>
+        <!-- Navigation Buttons -->
+        <div class="mvt-nav-bar mvt-nav-bar-end">
+          <button type="button" class="mvt-btn-primary" data-mvt-next="2">
+            <span>Next Step</span>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- ==================== STEP 2: Upload Images & Videos ==================== -->
+      <section class="mvt-step-panel" data-mvt-panel="2" hidden>
+        <div class="mvt-panel-heading">
+          <h2 data-mvt-step2-title>
+            {{ section.settings.step2_title | default: 'Step 2: Upload photos and video clips' }}
+          </h2>
+          <p data-mvt-step2-subtitle>
+            {{
+              section.settings.step2_subtitle
+              | default: 'Add your favorite pictures and short video clips to make your music video unforgettable.'
+            }}
+          </p>
+        </div>
+
+        <!-- Video Format Selection (Step 2 Extra Option) -->
+        <div class="mvt-format-section" data-mvt-format-section>
+          <div class="mvt-format-header">
+            <h3 class="mvt-format-title" data-mvt-format-title>
+              {{ section.settings.step2_format_title | default: 'Choose your video format' }}
+            </h3>
+            <p class="mvt-format-desc" data-mvt-format-desc>
+              {{
+                section.settings.step2_format_desc
+                | default: 'This format will be used to create your final video. Please note: photos and videos may be cropped if they do not match the selected format.'
+              }}
+            </p>
+          </div>
+
+          <div class="mvt-format-grid" data-mvt-format-grid>
+            <!-- Option 1: 9:16 Vertical -->
+            <div
+              class="mvt-format-card is-selected"
+              data-mvt-format="9:16"
+              role="button"
+              tabindex="0"
+              aria-pressed="true"
+            >
+              <div class="mvt-format-check" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <div class="mvt-format-visual-wrap">
+                <div class="mvt-aspect-preview mvt-aspect-vertical">
+                  <div class="mvt-aspect-screen">
+                    <span class="mvt-aspect-ratio-label">9:16</span>
+                  </div>
+                </div>
+              </div>
+              <div class="mvt-format-info">
+                <div class="mvt-format-top-row">
+                  <span class="mvt-format-ratio-pill">9:16</span>
+                  <h4 class="mvt-format-label">Instagram / Vertical</h4>
+                </div>
+                <p class="mvt-format-card-desc">Best for Instagram Reels, TikTok, Stories and mobile viewing</p>
+              </div>
+            </div>
+
+            <!-- Option 2: 16:9 Landscape -->
+            <div class="mvt-format-card" data-mvt-format="16:9" role="button" tabindex="0" aria-pressed="false">
+              <div class="mvt-format-check" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <div class="mvt-format-visual-wrap">
+                <div class="mvt-aspect-preview mvt-aspect-horizontal">
+                  <div class="mvt-aspect-screen">
+                    <span class="mvt-aspect-ratio-label">16:9</span>
+                  </div>
+                </div>
+              </div>
+              <div class="mvt-format-info">
+                <div class="mvt-format-top-row">
+                  <span class="mvt-format-ratio-pill">16:9</span>
+                  <h4 class="mvt-format-label">Landscape</h4>
+                </div>
+                <p class="mvt-format-card-desc">Best for YouTube, TV, desktop and widescreen viewing</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Multi-file Dropzone -->
+        <div class="mvt-dropzone" data-mvt-media-dropzone>
+          <input
+            type="file"
+            id="mvt-media-input"
+            accept="image/*,video/*,.mp4,.mov,.jpg,.jpeg,.png,.heic,.webp"
+            multiple
+            class="mvt-file-input"
+          />
+          <div class="mvt-dropzone-content">
+            <div class="mvt-dropzone-icon">
+              <svg
+                viewBox="0 0 24 24"
+                width="48"
+                height="48"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+            </div>
+            <h3>Drag &amp; drop photos &amp; video clips here</h3>
+            <p>or click to browse from your device</p>
+            <div class="mvt-dropzone-btn-wrap">
+              <label for="mvt-media-input" class="mvt-btn-secondary mvt-btn-sm">Choose Photos &amp; Videos</label>
+            </div>
+            <span class="mvt-dropzone-formats"
+              >JPG, PNG, HEIC, MP4, MOV (Total upload up to 300MB • Audio max 15MB)</span
+            >
+          </div>
+        </div>
+
+        <!-- Uploaded Media Grid & Action Bar -->
+        <div class="mvt-media-section" data-mvt-media-section hidden>
+          <div class="mvt-media-toolbar">
+            <div class="mvt-media-count-badge">
+              <span>Uploaded Media:</span>
+              <strong data-mvt-media-count>0 files</strong>
+            </div>
+            <label for="mvt-media-input" class="mvt-btn-secondary mvt-btn-xs">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>Add More Files</span>
+            </label>
+          </div>
+
+          <div class="mvt-media-reorder-hint">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4"/>
+            </svg>
+            <span><strong>Arrange Order:</strong> Drag &amp; drop photos and videos or use the arrows to set the exact order for your music video.</span>
+          </div>
+
+          <!-- Media Thumbnails Grid -->
+          <div class="mvt-media-grid" data-mvt-media-grid></div>
+        </div>
+
+        <!-- Inline Step Alert (Compact 1-Line) -->
+        <div class="mvt-step-alert" data-mvt-step-alert="2" hidden>
+          <span class="mvt-step-alert-icon" data-mvt-step-alert-icon>⚠️</span>
+          <span class="mvt-step-alert-text">
+            <strong data-mvt-step-alert-title>Media Required:</strong>
+            <span data-mvt-step-alert-msg>Please upload at least 1 photo or video clip.</span>
+          </span>
+        </div>
+
+        <!-- Portal Direct Notes & Submit Section (Only for File Upload Link customers) -->
+        <div class="mvt-portal-submit-wrap" data-mvt-portal-submit-wrap hidden style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <div class="mvt-input-group" style="margin-bottom: 20px;">
+            <label class="mvt-label" for="mvt-portal-order-notes" style="font-weight: 700; font-size: 14px; margin-bottom: 6px; display: block; color: #1f2937;">
+              Special Instructions / Notes for Video Editor (Optional)
+            </label>
+            <textarea
+              id="mvt-portal-order-notes"
+              class="mvt-textarea"
+              data-mvt-portal-notes
+              rows="3"
+              placeholder="Any specific order of photos, favourite moments, or special requests for the video editor..."
+              style="width: 100%; border-radius: 12px; border: 1px solid #d1d5db; padding: 12px; font-size: 13px;"
+            ></textarea>
+          </div>
+
+          <!-- Upload Progress Card (when submitting) -->
+          <div class="mvt-upload-progress-card" data-mvt-portal-upload-progress hidden style="margin-bottom: 20px;">
+            <div class="mvt-progress-text" style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151;">
+              <span data-mvt-portal-progress-status>Uploading media files...</span>
+              <span data-mvt-portal-progress-pct>0%</span>
+            </div>
+            <div style="min-height: 8px; height: 8px; background: #f2f4f7; border-radius: 9999px; overflow: hidden;">
+              <div data-mvt-portal-progress-bar style="width: 0%; height: 100%; background: #10b981; border-radius: 9999px; transition: width 0.3s;"></div>
+            </div>
+          </div>
+
+          <!-- Navigation / Submit Button for Portal -->
+          <div class="mvt-nav-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <button type="button" class="mvt-btn-secondary" data-mvt-prev="1">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              <span>Back to Song</span>
+            </button>
+            <button type="button" class="mvt-btn-primary" data-mvt-portal-submit-btn style="background: #ff5b00; padding: 12px 28px; font-size: 15px; font-weight: 700; border-radius: 12px; cursor: pointer;">
+              <span data-mvt-portal-submit-text>Submit Video Media Files ➜</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Navigation Buttons (Normal Storefront Mode) -->
+        <div class="mvt-nav-bar" data-mvt-normal-step2-nav>
+          <button type="button" class="mvt-btn-secondary" data-mvt-prev="1">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            <span>Back</span>
+          </button>
+          <button type="button" class="mvt-btn-primary" data-mvt-next="3">
+            <span>Next Step</span>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- ==================== STEP 3: Package Selection & Checkout ==================== -->
+      <section class="mvt-step-panel" data-mvt-panel="3" hidden>
+        <div class="mvt-panel-heading">
+          <h2 data-mvt-step3-title>{{ section.settings.step3_title | default: 'Step 3: Select your package' }}</h2>
+          <p data-mvt-step3-subtitle>
+            {{
+              section.settings.step3_subtitle
+              | default: 'Choose your music video production package and proceed to checkout.'
+            }}
+          </p>
+        </div>
+
+        <!-- Dynamic Packages Grid from Dashboard / Fallback -->
+        <div class="mvt-packages-grid" data-mvt-packages-grid>
+          <div
+            class="mvt-package-card is-selected"
+            data-package-id="video_standard"
+            data-variant-id="{{ video_default_v.id }}"
+            {% if video_rush_v != blank %}
+              data-rush-variant-id="{{ video_rush_v.id }}" data-rush-price="{{ video_rush_v.price | money }}"
+            {% endif %}
+            data-price="{{ video_default_v.price | money }}"
+          >
+            <div class="mvt-package-tag">Most Popular</div>
+            <div class="mvt-package-body">
+              <h3 class="mvt-package-title">
+                🎬 {{ section.settings.package1_title | default: 'Cinematic Music Video' }}
+              </h3>
+              <div class="mvt-package-length-badge">Full HD 1080p Video</div>
+
+              <div class="mvt-package-features">
+                <div class="mvt-package-features-label">📦 What's included?</div>
+                <ul>
+                  <li>High-Definition 1080p Cinematic Music Video</li>
+                  <li>Custom synchronized audio &amp; beat transitions</li>
+                  <li>Includes custom background effects &amp; color grading</li>
+                  <li>Delivered directly to your email in 24-48 Hours</li>
+                  <li>100% Satisfaction Guarantee with free revision</li>
+                  <li>One-time payment, no subscription</li>
+                </ul>
+              </div>
+
+              <div class="mvt-package-price-wrap">
+                {%- if video_default_v.compare_at_price > video_default_v.price -%}
+                  <span class="mvt-package-original-price" data-mvt-package-original-price>
+                    {{- video_default_v.compare_at_price | money -}}
+                  </span>
+                  {%- assign vid_savings = video_default_v.compare_at_price | minus: video_default_v.price -%}
+                  {%- assign vid_discount = vid_savings
+                    | times: 100.0
+                    | divided_by: video_default_v.compare_at_price
+                    | round
+                  -%}
+                  <div class="mvt-package-price" data-mvt-package-price>{{ video_default_v.price | money }}</div>
+                  {%- if vid_discount > 0 -%}
+                    <span class="mvt-package-discount-badge">{{ vid_discount }}% OFF</span>
+                  {%- endif -%}
+                {%- else -%}
+                  <div class="mvt-package-price" data-mvt-package-price>{{ video_default_v.price | money }}</div>
+                {%- endif -%}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rush Order Option (Matching Custom Song Builder) -->
+        {%- if section.settings.rush_order_product != blank or video_rush_v != blank -%}
+          <div class="mvt-rush-order-box">
+            <label class="mvt-checkbox-row mvt-checkbox-rush">
+              <input type="checkbox" id="mvt-rush-checkbox" data-mvt-field="rushOrder" checked />
+              <div class="mvt-rush-order-info">
+                <span class="mvt-rush-order-title" data-mvt-rush-title>
+                  {{- section.settings.rush_order_title | default: 'Rush My Video Order' -}}
+                </span>
+                <span class="mvt-rush-order-desc" data-mvt-rush-desc>
+                  {{- section.settings.rush_order_desc | default: 'Order delivered in under 2 hours' -}}
+                </span>
+              </div>
+              <span class="mvt-rush-order-badge" data-mvt-rush-price>
+                {%- if section.settings.rush_order_product != blank -%}
+                  {{ section.settings.rush_order_product.price | money }}
+                {%- elsif video_rush_v != blank and video_default_v != blank -%}
+                  {%- assign diff_price = video_rush_v.price | minus: video_default_v.price -%}
+                  {%- if diff_price > 0 -%}
+                    +{{ diff_price | money }}
+                  {%- else -%}
+                    {{ video_rush_v.price | money }}
+                  {%- endif -%}
+                {%- endif -%}
+              </span>
+            </label>
+          </div>
+        {%- endif -%}
+
+        <!-- Customer Order Information Box -->
+        <div class="mvt-order-inputs-card">
+          <div class="mvt-input-group">
+            <label class="mvt-label" for="mvt-customer-email">Your Email Address *</label>
+            <div class="mvt-input-lock-wrap">
+              <input
+                type="email"
+                id="mvt-customer-email"
+                class="mvt-input"
+                data-mvt-field="email"
+                placeholder="Where should we send your completed video?"
+                required
+              />
+              <div class="mvt-lock-box" data-mvt-lock-box title="Secure email delivery">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path data-mvt-lock-shackle d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                </svg>
+              </div>
+            </div>
+            <p class="mvt-hint">We will email your final music video download link to this address.</p>
+          </div>
+
+          <div class="mvt-input-group mvt-mt-3">
+            <label class="mvt-label" for="mvt-order-notes">Special Instructions / Notes (Optional)</label>
+            <textarea
+              id="mvt-order-notes"
+              class="mvt-textarea"
+              data-mvt-field="notes"
+              rows="3"
+              placeholder="Any specific order of photos, favourite moments, or special requests for the video editor..."
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Summary & Upload Progress Bar (when checking out) -->
+        <div class="mvt-upload-progress-card" data-mvt-upload-progress hidden>
+          <div class="mvt-progress-text">
+            <span data-mvt-progress-status>Uploading media files to cloud storage...</span>
+            <span data-mvt-progress-pct>0%</span>
+          </div>
+          <div
+            class="mvt-progress-bar-wrap"
+            style="min-height: 8px; height: 8px; background: #f2f4f7; border: none; border-radius: 9999px; overflow: hidden; box-shadow: none;"
+          >
+            <div
+              class="mvt-progress-bar-fill"
+              data-mvt-progress-bar
+              style="width: 0%; min-height: 8px; height: 100%; display: block; border-radius: 9999px; background: #ff5b00; border: none; box-shadow: none;"
+            ></div>
+          </div>
+        </div>
+
+        <!-- Inline Step Alert (Compact 1-Line) -->
+        <div class="mvt-step-alert" data-mvt-step-alert="3" hidden>
+          <span class="mvt-step-alert-icon" data-mvt-step-alert-icon>⚠️</span>
+          <span class="mvt-step-alert-text">
+            <strong data-mvt-step-alert-title>Notice:</strong>
+            <span data-mvt-step-alert-msg>Please complete the required fields.</span>
+          </span>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="mvt-nav-bar">
+          <button type="button" class="mvt-btn-secondary" data-mvt-prev="2">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            <span>Back</span>
+          </button>
+          <button type="button" class="mvt-btn-primary mvt-btn-checkout" data-mvt-checkout>
+            <span class="mvt-btn-checkout-text">Proceed to Checkout</span>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="mvt-trust-subtext">🔒 256-Bit SSL Encrypted Checkout • 100% Satisfaction Guaranteed</div>
+      </section>
+    </main>
+
+    <!-- Modal: Interactive Photo / Video Playback Preview Lightbox -->
+    <div class="mvt-modal-overlay mvt-preview-modal-overlay" data-mvt-preview-modal hidden>
+      <div class="mvt-modal mvt-preview-modal">
+        <div class="mvt-modal-header">
+          <h3 data-mvt-preview-title>Media Preview</h3>
+          <button type="button" class="mvt-modal-close" data-mvt-preview-modal-close aria-label="Close preview">
+            &times;
+          </button>
+        </div>
+        <div class="mvt-modal-body mvt-preview-body">
+          <div class="mvt-preview-media-wrap">
+            <img src="" alt="Preview" class="mvt-preview-img" data-mvt-preview-img hidden />
+            <video controls autoplay playsinline class="mvt-preview-video" data-mvt-preview-video hidden></video>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Page Refresh / Resume Upload Confirmation -->
+    <div class="mvt-modal-overlay" data-mvt-refresh-modal hidden>
+      <div class="mvt-modal">
+        <div class="mvt-modal-header">
+          <h3>Continue your video?</h3>
+          <button type="button" class="mvt-modal-close" data-mvt-refresh-modal-close aria-label="Close modal">
+            &times;
+          </button>
+        </div>
+        <div class="mvt-modal-body">
+          <p class="mvt-modal-text">
+            We found a video you were working on. Would you like to keep working on your current video or start fresh?
+          </p>
+        </div>
+        <div class="mvt-modal-footer">
+          <button type="button" class="mvt-btn-primary mvt-btn-full" data-mvt-refresh-keep>Keep Current Video</button>
+          <button type="button" class="mvt-btn-secondary mvt-btn-full" data-mvt-refresh-new>Start New Video</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Multiple Video Orders in Cart Warning -->
+    <div class="mvt-modal-overlay" data-mvt-cart-modal hidden>
+      <div class="mvt-modal">
+        <div class="mvt-modal-header">
+          <h3>Multiple Music Videos in Cart?</h3>
+          <button type="button" class="mvt-modal-close" data-mvt-cart-modal-close aria-label="Close modal">
+            &times;
+          </button>
+        </div>
+        <div class="mvt-modal-body">
+          <p class="mvt-modal-text">
+            You already have a music video order in your cart. Would you like to keep both videos, replace the previous
+            one, or view your cart?
+          </p>
+        </div>
+        <div class="mvt-modal-footer">
+          <button type="button" class="mvt-btn-primary mvt-btn-full" data-mvt-cart-keep>
+            Keep Both &amp; Checkout
+          </button>
+          <button type="button" class="mvt-btn-secondary mvt-btn-full" data-mvt-cart-replace>
+            Replace Existing Video
+          </button>
+          <button type="button" class="mvt-btn-secondary mvt-btn-full" data-mvt-cart-view>View Cart</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="mvt-toast" class="mvt-toast" hidden>
+      <div class="mvt-toast-content">
+        <span class="mvt-toast-icon" data-mvt-toast-icon>⚠️</span>
+        <div class="mvt-toast-text">
+          <strong data-mvt-toast-title>Notice</strong>
+          <p data-mvt-toast-msg>Please complete the required fields.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{{ 'music-video-tool.js' | asset_url }}" defer="defer"></script>
+
+{% schema %}
+{
+  "name": "Music Video Tool",
+  "tag": "section",
+  "class": "section-music-video-tool",
+  "settings": [
+    {
+      "type": "color",
+      "id": "brand_color",
+      "label": "Brand Accent Color",
+      "default": "#ff5b00"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Section Heading",
+      "default": "Create Your Music Video"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "Section Subheading",
+      "default": "Turn your custom song and favorite memories into a cinematic music video"
+    },
+    {
+      "type": "text",
+      "id": "backend_url",
+      "label": "Dashboard Backend API URL",
+      "default": "https://dashboard.myownsongs.com",
+      "info": "URL of your Next.js dashboard backend (e.g. https://dashboard.myownsongs.com)"
+    },
+    {
+      "type": "product",
+      "id": "video_product",
+      "label": "Shopify Video Product",
+      "info": "Product in Shopify with Standard & Rush variants"
+    },
+    {
+      "type": "header",
+      "content": "Step 1: Audio"
+    },
+    {
+      "type": "text",
+      "id": "step1_title",
+      "label": "Step 1 Title",
+      "default": "Step 1: Upload your audio track"
+    },
+    {
+      "type": "text",
+      "id": "step1_subtitle",
+      "label": "Step 1 Subtitle",
+      "default": "Upload your custom song or any audio file you want in the music video."
+    },
+    {
+      "type": "header",
+      "content": "Step 2: Media"
+    },
+    {
+      "type": "text",
+      "id": "step2_title",
+      "label": "Step 2 Title",
+      "default": "Step 2: Upload photos and video clips"
+    },
+    {
+      "type": "text",
+      "id": "step2_subtitle",
+      "label": "Step 2 Subtitle",
+      "default": "Add your favorite pictures and short video clips to make your music video unforgettable."
+    },
+    {
+      "type": "text",
+      "id": "step2_format_title",
+      "label": "Video Format Section Title",
+      "default": "Choose your video format"
+    },
+    {
+      "type": "textarea",
+      "id": "step2_format_desc",
+      "label": "Video Format Section Description",
+      "default": "This format will be used to create your final video. Please note: photos and videos may be cropped if they do not match the selected format."
+    },
+    {
+      "type": "header",
+      "content": "Step 3: Package & Checkout"
+    },
+    {
+      "type": "text",
+      "id": "step3_title",
+      "label": "Step 3 Title",
+      "default": "Step 3: Select your package"
+    },
+    {
+      "type": "text",
+      "id": "step3_subtitle",
+      "label": "Step 3 Subtitle",
+      "default": "Choose your music video production package and proceed to checkout."
+    },
+    {
+      "type": "text",
+      "id": "package1_title",
+      "label": "Default Package Title",
+      "default": "Cinematic Music Video"
+    },
+    {
+      "type": "text",
+      "id": "rush_order_title",
+      "label": "Rush Order Title",
+      "default": "Rush My Video Order"
+    },
+    {
+      "type": "text",
+      "id": "rush_order_desc",
+      "label": "Rush Order Description",
+      "default": "Order delivered in under 2 hours"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Music Video Tool"
+    }
+  ]
+}
+{% endschema %}
